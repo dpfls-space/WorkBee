@@ -1,48 +1,21 @@
 <template>
-  <div class="layout">
-    <aside class="sidebar">
-      <h2>WorkBee</h2>
-
-      <button @click="menu = 'dashboard'">대시보드</button>
-      <button @click="menu = 'employees'">사원관리</button>
-      <button @click="menu = 'attendance'">근태관리</button>
-    </aside>
-
-    <main class="content">
-      <Dashboard v-if="menu === 'dashboard'" />
-      <EmployeeView v-if="menu === 'employees'" />
-      <AttendanceView v-if="menu === 'attendance'" />
-    </main>
+  <div>
+    <LoginView v-if="!user" @login="user = $event" />
+    
+    <div v-else style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);font-family:var(--font-sans)">
+      <div style="text-align:center">
+        <div style="font-size:32px;margin-bottom:8px">🐝</div>
+        <div style="font-size:18px;font-weight:700;color:var(--ink)">{{ user.name }}님, 환영합니다.</div>
+        <div style="font-size:13px;color:var(--muted);margin-top:4px">대시보드 구현 예정</div>
+        <button @click="user = null" style="margin-top:20px;padding:8px 16px;border:1px solid var(--rule);border-radius:8px;background:var(--surface);color:var(--muted);cursor:pointer;font-family:var(--font-sans);font-size:13px">로그아웃</button>
+      </div>
+    </div>
   </div>
 </template>
+
 <script setup>
-import { ref } from 'vue';
+import { ref } from 'vue'
+import LoginView from './views/LoginView.vue'
 
-import Dashboard from './views/Dashboard.vue';
-import EmployeeView from './views/EmployeeView.vue';
-import AttendanceView from './views/AttendanceView.vue';
-
-const menu = ref('dashboard');
+const user = ref(null)
 </script>
-
-<style>
-.layout {
-  display: flex;
-  height: 100vh;
-}
-
-.sidebar {
-  width: 220px;
-  background: #1e1e1e;
-  color: white;
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.content {
-  flex: 1;
-  padding: 20px;
-}
-</style>
