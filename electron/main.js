@@ -3,7 +3,7 @@ import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 
 const __filename = fileURLToPath(import.meta.url)
-const __dirname  = dirname(__filename)
+const __dirname = dirname(__filename)
 
 async function waitForVite(url, retries = 30, delay = 1000) {
     const { net } = await import('electron')
@@ -27,7 +27,7 @@ async function createWindow() {
     const win = new BrowserWindow({
         width: 1280,
         height: 800,
-        icon: join(__dirname, 'src/assets/favicon/favicon.ico'),
+        icon: join(__dirname, '../src/assets/favicon/favicon.ico'),
     })
 
     await waitForVite('http://localhost:5173')
