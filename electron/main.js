@@ -11,27 +11,45 @@ const __dirname = dirname(__filename)
 const require = createRequire(import.meta.url)
 
 // CJS 모듈 import ----------------
-const Database = require('better-sqlite3')
 const fs = require('fs')
 
 // IPC 핸들러 모듈 ----------------
-const registerAuth = require('./api/auth')
-const registerUser = require('./api/user')
-const registerCompany = require('./api/company')
-const registerLeave = require('./api/leave')
-const registerAttendance = require('./api/attendance')
+import registerAuth from './api/auth.js'
+import registerUser from './api/user.js'
+import registerCompany from './api/company.js'
+import registerLeave from './api/leave.js'
+import registerAttendance from './api/attendance.js'
 
 // DB 초기화 ----------------
-function initDatabase() {
+async function initDatabase() {
+    const initSqlJs = require('sql.js')
+    const SQL = await initSqlJs()
+
     const DB_PATH = join(app.getPath('userData'), 'workbee.db')
     const SCHEMA_PATH = join(__dirname, 'database.sql')
 
-    const db = new Database(DB_PATH)
-    db.pragma('journal_mode = WAL')
-    db.pragma('foreign_keys = ON')
+    // 기존 DB 파일이 있으면 로드, 없으면 새로 생성
+    let db
+    if (fs.existsSync(DB_PATH)) {
+        const fileBuffer = fs.readFileSync(DB_PATH)
+        db = new SQL.Database(fileBuffer)
+    } else {
+        db = new SQL.Database()
+    }
+
+    db.run('PRAGMA foreign_keys = ON')
 
     const schema = fs.readFileSync(SCHEMA_PATH, 'utf-8')
-    db.exec(schema) // CREATE TABLE IF NOT EXISTS 구문이 포함된 SQL 스키마 실행
+    db.exec(schema)
+
+    // sql.js는 인메모리라 직접 파일 저장 필요
+    const saveDb = () => {
+        const data = db.export()
+        fs.writeFileSync(DB_PATH, Buffer.from(data))
+    }
+
+    saveDb() // 스키마 적용 후 초기 저장
+    db.saveToFile = saveDb
 
     return db
 }
@@ -68,7 +86,7 @@ async function createWindow() {
         }
     })
 
-    if (process.env.NODE_ENV === 'development') {
+    if (!app.isPackaged) {
         await waitForVite('http://localhost:5173')
         win.loadURL('http://localhost:5173')
     } else {
@@ -79,7 +97,7 @@ async function createWindow() {
 // 앱 시작 ----------------
 app.whenReady().then(async () => {
     // DB 초기화
-    const db = initDatabase()
+    const db = await initDatabase()
 
     // IPC 핸들러 등록 ----------------
     registerAuth(ipcMain, db)
