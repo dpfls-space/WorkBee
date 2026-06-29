@@ -48,14 +48,10 @@
         </div>
       </div>
 
-      <div style="flex:1" />
-
       <!-- Footer -->
       <div class="ll-footer">
-        <div class="ll-footer-left">
-          <span>© 2026 dpfls-space</span>
-          <span>WorkBee v1.0</span>
-        </div>
+        <span>© 2026 dpfls-space</span>
+        <span>WorkBee v1.0</span>
       </div>
     </div>
 
@@ -177,7 +173,7 @@
             <!-- Stepper -->
             <div class="wb-stepper">
               <template v-for="(s, i) in regSteps" :key="s.n">
-                <div style="display:flex;align-items:center;gap:9px">
+                <div class="wb-step-item">
                   <div class="wb-step-num" :class="{ active: regStep >= s.n, done: regStep > s.n }">
                     <svg v-if="regStep > s.n" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
                       width="12" height="12">
@@ -266,6 +262,7 @@
               </svg>
               이전
             </button>
+            <div v-if="regError" class="reg-error">{{ regError }}</div>
             <div style="flex:1" />
             <button type="button" class="wb-btn-ghost" @click="showRegister = false">취소</button>
             <button v-if="regStep === 1" type="button" class="wb-btn-primary-sm" :disabled="!step1Valid"
@@ -282,33 +279,8 @@
 <script setup>
 import { ref, reactive, computed } from 'vue'
 import logoUrl from '../assets/image/logo.png'
-
-const ADMINS_KEY = 'workbee.admins'
-const COMPANY_KEY = 'workbee.company'
-
-const SEED_ADMINS = [
-  { id: 'admin', pw: 'workbee', name: '윤하영', role: 'HR 매니저', email: 'admin@workbee.kr', isPrimary: true, createdAt: '2026-01-02' },
-]
-const SEED_COMPANY = {
-  name: 'Velvet Labs',
-  bizNo: '123-45-67890',
-  industry: '소프트웨어',
-  size: '11–50명',
-  address: '서울시 성동구 성수이로 22길',
-  registeredAt: '2026-01-02',
-}
-
-function loadAdmins() {
-  try { const v = JSON.parse(localStorage.getItem(ADMINS_KEY)); if (Array.isArray(v) && v.length) return v } catch (e) { }
-  return [...SEED_ADMINS]
-}
-function loadCompany() {
-  try { const v = JSON.parse(localStorage.getItem(COMPANY_KEY)); if (v && v.name) return v } catch (e) { }
-  return { ...SEED_COMPANY }
-}
-
-const admins = ref(loadAdmins())
-const company = ref(loadCompany())
+import { login as apiLogin } from '../api/authApi.js'
+import { registerCompany as apiRegisterCompany } from '../api/companyApi.js'
 
 const loginId = ref('')
 const loginPw = ref('')
@@ -319,22 +291,21 @@ const busy = ref(false)
 
 const emit = defineEmits(['login'])
 
-function submit() {
+async function submit() {
   loginError.value = ''
   busy.value = true
-  setTimeout(() => {
-    const match = admins.value.find(a => a.id === loginId.value.trim() && a.pw === loginPw.value)
-    if (match) {
-      emit('login', match)
-    } else {
-      loginError.value = '아이디 또는 비밀번호가 올바르지 않습니다.'
-      busy.value = false
-    }
-  }, 350)
+  const res = await apiLogin(loginId.value.trim(), loginPw.value)
+  if (res.ok) {
+    emit('login', res.user)
+  } else {
+    loginError.value = '아이디 또는 비밀번호가 올바르지 않습니다.'
+    busy.value = false
+  }
 }
 
 const showRegister = ref(false)
 const regStep = ref(1)
+const regError = ref('')
 const regC = reactive({ name: '', bizNo: '', industry: '소프트웨어', size: '11–50명', address: '' })
 const regA = reactive({ name: '', email: '', id: '', pw: '', pw2: '', role: 'HR 매니저' })
 
@@ -346,20 +317,22 @@ const step2Valid = computed(() => !!(regA.name && regA.email && regA.id && regA.
 
 const regSteps = [{ n: 1, l: '회사 정보' }, { n: 2, l: '최초 관리자' }]
 
-function submitRegister() {
+async function submitRegister() {
   if (!step2Valid.value) return
-  const today = new Date().toISOString().slice(0, 10)
-  const newCompany = { ...regC, registeredAt: today }
-  const newAdmin = { id: regA.id, pw: regA.pw, name: regA.name, email: regA.email, role: regA.role, isPrimary: true, createdAt: today }
-  localStorage.setItem(COMPANY_KEY, JSON.stringify(newCompany))
-  localStorage.setItem(ADMINS_KEY, JSON.stringify([newAdmin]))
-  company.value = newCompany
-  admins.value = [newAdmin]
+  regError.value = ''
+  const res = await apiRegisterCompany(
+    { name: regC.name, bizNo: regC.bizNo, industry: regC.industry, size: regC.size, address: regC.address },
+    { id: regA.id, name: regA.name, email: regA.email, pw: regA.pw, role: regA.role }
+  )
+  if (!res.ok) {
+    regError.value = res.error || '등록 중 오류가 발생했습니다.'
+    return
+  }
   showRegister.value = false
   regStep.value = 1
   Object.assign(regC, { name: '', bizNo: '', industry: '소프트웨어', size: '11–50명', address: '' })
   Object.assign(regA, { name: '', email: '', id: '', pw: '', pw2: '', role: 'HR 매니저' })
-  emit('login', newAdmin)
+  emit('login', res.user)
 }
 
 const HEX_SIZE = 28
@@ -525,16 +498,12 @@ const bullets = [
   position: relative;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 18px;
+  margin-top: auto;
   padding-top: 22px;
   border-top: 1px solid color-mix(in srgb, var(--color-cream) 12%, transparent);
   font-size: 11.5px;
   color: color-mix(in srgb, var(--color-cream) 50%, transparent);
-}
-
-.ll-footer-left {
-  display: flex;
-  gap: 18px;
 }
 
 /* ── Right form pane ── */
@@ -875,6 +844,12 @@ const bullets = [
 }
 
 /* ── Stepper ── */
+.wb-step-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
 .wb-stepper {
   display: flex;
   align-items: center;
@@ -965,5 +940,10 @@ const bullets = [
 .wb-notice.amber {
   background: var(--color-amber-bg);
   color: var(--color-amber-fg);
+}
+
+.reg-error {
+  font-size: 12px;
+  color: var(--color-danger);
 }
 </style>
